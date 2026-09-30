@@ -1,0 +1,6 @@
+{
+  "name": "MindTrack - Habit & Mood Tracker",
+  "description": "A personal habit and mood tracking platform with visual analytics. Developed by Shifa Sadik Sayyed (BCA 3rd Year, Roll No. 41) under guidance of Asst. Prof. Affan Khan.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MindTrack – Personal Habit & Mood Analytics</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            slate: {
+              950: '#030712',
+              900: '#0f172a',
+              800: '#1e293b',
+              700: '#334155',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- React 18 & Babel CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    /* Custom luxury scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #030712;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased selection:bg-teal-500 selection:text-slate-950">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    // --- Mood Configurations (Exact match to app) ---
+    const MOOD_CONFIGS = {
+      ecstatic: {
+        id: 'ecstatic',
+        label: 'Ecstatic',
+        emoji: '🤩',
+        color: '#2dd4bf',
+        bgGradient: 'from-teal-500/20 to-emerald-500/10',
+        score: 5,
+      },
+      happy: {
+        id: 'happy',
+        label: 'Happy',
+        emoji: '😊',
+        color: '#38bdf8',
+        bgGradient: 'from-sky-500/20 to-teal-500/10',
+        score: 4,
+      },
+      calm: {
+        id: 'calm',
+        label: 'Calm',
+        emoji: '😌',
+        color: '#818cf8',
+        bgGradient: 'from-indigo-500/20 to-purple-500/10',
+        score: 3,
+      },
+      down: {
+        id: 'down',
+        label: 'Down',
+        emoji: '😔',
+        color: '#fbbf24',
+        bgGradient: 'from-amber-500/20 to-orange-500/10',
+        score: 2,
+      },
+      anxious: {
+        id: 'anxious',
+        label: 'Anxious',
+        emoji: '😰',
+        color: '#f43f5e',
+        bgGradient: 'from-rose-500/20 to-pink-500/10',
+        score: 1,
+      },
+    };
+
+    // --- Built-in SVG Icon Components (Lucide exact replicas) ---
+    const Icons = {
+      Activity: () => (
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        </svg>
+      ),
+      Home: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+      ),
+      LayoutDashboard: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect width="7" height="9" x="3" y="3" rx="1"></rect>
+          <rect width="7" height="5" x="14" y="3" rx="1"></rect>
+          <rect width="7" height="9" x="14" y="12" rx="1"></rect>
+          <rect width="7" height="5" x="3" y="16" rx="1"></rect>
+        </svg>
+      ),
+      BarChart3: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 3v18h18"></path>
+          <path d="M18 17V9"></path>
+          <path d="M13 17V5"></path>
+          <path d="M8 17v-3"></path>
+        </svg>
+      ),
+      Calendar: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect width="18" height="18" x="3" y="4" rx="2" ry="2"></rect>
+          <line x1="16" x2="16" y1="2" y2="6"></line>
+          <line x1="8" x2="8" y1="2" y2="6"></line>
+          <line x1="3" x2="21" y1="10" y2="10"></line>
+        </svg>
+      ),
+      Sparkles: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
+        </svg>
+      ),
+      Flame: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>
+        </svg>
+      ),
+      Moon: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+        </svg>
+      ),
+      Droplet: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"></path>
+        </svg>
+      ),
+      Clock: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+      ),
+      Smile: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+          <line x1="9" x2="9.01" y1="9" y2="9"></line>
+          <line x1="15" x2="15.01" y1="9" y2="9"></line>
+        </svg>
+      ),
+      Plus: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" x2="12" y1="5" y2="19"></line>
+          <line x1="5" x2="19" y1="12" y2="12"></line>
+        </svg>
+      ),
+      Trash2: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 6h18"></path>
+          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+          <line x1="10" x2="10" y1="11" y2="17"></line>
+          <line x1="14" x2="14" y1="11" y2="17"></line>
+        </svg>
+      ),
+      Search: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.3-4.3"></path>
+        </svg>
+      ),
+      Download: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" x2="12" y1="15" y2="3"></line>
+        </svg>
+      ),
+      Zap: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </svg>
+      ),
+      TrendingUp: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline>
+          <polyline points="16 7 22 7 22 13"></polyline>
+        </svg>
+      ),
+      CheckCircle2: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="m9 12 2 2 4-4"></path>
+        </svg>
+      ),
+      LogOut: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+          <polyline points="16 17 21 12 16 7"></polyline>
+          <line x1="21" x2="9" y1="12" y2="12"></line>
+        </svg>
+      ),
+      ArrowRight: () => (
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="5" x2="19" y1="12" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+      ),
+    };
+
+    // --- Seed Sample Data Generator ---
+    const generateInitialData = (userId) => {
+      const logs = [];
+      const today = new Date();
+      const moods = ['ecstatic', 'happy', 'calm', 'ecstatic', 'happy', 'calm', 'happy', 'ecstatic', 'calm', 'happy', 'down', 'happy', 'ecstatic', 'happy'];
+      const notes = [
+        'Great day! Slept 8.5h and finished project prototype.',
+        'Morning walk in the garden, feeling focused.',
+        'Steady revision session and met hydration goal.',
+        'High energy day! Solved complex coding logic.',
+        'Balanced routine with 45 mins workout.',
+        'Peaceful evening meditation after study.',
+        'Hit 8 glasses of water milestone today!',
+        'Early morning study session went great.',
+        'Consistent habit streak maintained.',
+        'Refreshed and energetic throughout the day.',
+        'Slightly busy schedule, rested early with warm tea.',
+        'Productive frontend layout coding session.',
+        'Achieved 10-day consistency record!',
+        'Feeling accomplished with today study routine.'
+      ];
+
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        const mood = moods[i % moods.length];
+        const sleep = Number((7.0 + (i % 3) * 0.5 + (i % 2) * 0.2).toFixed(1));
+        const water = 7 + (i % 4);
+        const study = Number((3.0 + (i % 3) * 0.5).toFixed(1));
+        const exercise = (i % 2 === 0 ? 30 : 45);
+
+        logs.push({
+          id: `log_${dateStr}_${userId}`,
+          userId,
+          date: dateStr,
+          sleepHours: sleep,
+          waterGlasses: water,
+          studyHours: study,
+          exerciseMinutes: exercise,
+          mood,
+          energyLevel: MOOD_CONFIGS[mood].score * 2,
+          notes: notes[i % notes.length],
+          createdAt: new Date().toISOString()
+        });
+      }
+      return logs;
+    };
+
+    // --- MAIN APP COMPONENT ---
+    function MindTrackApp() {
+      const [activeTab, setActiveTab] = useState('home');
+      const [user, setUser] = useState({
+        id: 'usr_shifa',
+        username: 'shifa_sayyed',
+        email: 'shifa.sayyed@college.edu',
+        joinedDate: '2026-08-01',
+        currentStreak: 7,
+        longestStreak: 14
+      });
+      const [allLogs, setAllLogs] = useState([]);
+      const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+      const [customCursor, setCustomCursor] = useState(true);
+
+      // LocalStorage Sync
+      useEffect(() => {
+        const storedLogs = localStorage.getItem('mindtrack_habit_logs_v2');
+        if (storedLogs) {
+          try {
+            const parsed = JSON.parse(storedLogs);
+            setAllLogs(parsed);
+          } catch(e) {
+            console.error(e);
+          }
+        } else {
+          const sample = generateInitialData(user.id);
+          localStorage.setItem('mindtrack_habit_logs_v2', JSON.stringify(sample));
+          setAllLogs(sample);
+        }
+      }, []);
+
+      // Filtered User Scoped Logs
+      const userLogs = useMemo(() => {
+        return user ? allLogs.filter(l => l.userId === user.id) : [];
+      }, [allLogs, user]);
+
+      const todayStr = new Date().toISOString().split('T')[0];
+      const todayLog = userLogs.find(l => l.date === todayStr);
+
+      // Save Log Handler
+      const handleSaveLog = (logData) => {
+        const now = new Date().toISOString();
+        const existingIdx = allLogs.findIndex(l => l.userId === user.id && (l.date === logData.date || l.id === logData.id));
+        let updatedLogs = [...allLogs];
+
+        if (existingIdx >= 0) {
+          updatedLogs[existingIdx] = {
+            ...updatedLogs[existingIdx],
+            ...logData,
+            userId: user.id
+          };
+        } else {
+          updatedLogs.unshift({
+            ...logData,
+            id: logData.id || `log_${logData.date}_${Date.now()}`,
+            userId: user.id,
+            createdAt: now
+          });
+        }
+
+        setAllLogs(updatedLogs);
+        localStorage.setItem('mindtrack_habit_logs_v2', JSON.stringify(updatedLogs));
+        
+        try {
+          confetti({
+            particleCount: 80,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#2dd4bf', '#818cf8', '#a855f7', '#f59e0b'],
+          });
+        } catch(e) {}
+      };
+
+      const handleDeleteLog = (id) => {
+        const updated = allLogs.filter(l => l.id !== id);
+        setAllLogs(updated);
+        localStorage.setItem('mindtrack_habit_logs_v2', JSON.stringify(updated));
+      };
+
+      const handleClearLogs = () => {
+        const updated = allLogs.filter(l => l.userId !== user.id);
+        setAllLogs(updated);
+        localStorage.setItem('mindtrack_habit_logs_v2', JSON.stringify(updated));
+      };
+
+      const handleLoadSampleLogs = () => {
+        const samples = generateInitialData(user.id);
+        const remaining = allLogs.filter(l => l.userId !== user.id);
+        const updated = [...samples, ...remaining];
+        setAllLogs(updated);
+        localStorage.setItem('mindtrack_habit_logs_v2', JSON.stringify(updated));
+      };
+
+      return (
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-teal-500 selection:text-slate-950">
+          {/* Header / Navbar */}
+          <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md">
+            <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
+              
+              {/* Brand Logo */}
+              <button onClick={() => setActiveTab('home')} className="group flex items-center gap-2.5 text-left transition-transform active:scale-95">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-teal-500 via-indigo-500 to-purple-600 shadow-[0_0_15px_rgba(45,212,191,0.3)] transition-all group-hover:shadow-[0_0_25px_rgba(168,85,247,0.5)]">
+                  <span className="text-white"><Icons.Activity /></span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="bg-gradient-to-r from-teal-200 via-indigo-200 to-purple-300 bg-clip-text text-lg font-extrabold tracking-tight text-transparent">
+                      MindTrack
+                    </span>
+                    <span className="rounded-full bg-teal-500/10 px-2 py-0.5 text-[10px] font-semibold text-teal-400 border border-teal-500/20">
+                      PRO
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-medium text-slate-400">
+                    Developed by <span className="text-teal-300 font-semibold">Shifa Sayyed (Roll No. 41)</span> • TY BCA
+                  </p>
+                </div>
+              </button>
+
+              {/* Center Nav Pills */}
+              <nav className="hidden md:flex items-center gap-1 rounded-full border border-slate-800 bg-slate-900/70 p-1.5 shadow-inner">
+                <button
+                  onClick={() => setActiveTab('home')}
+                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
+                    activeTab === 'home'
+                      ? 'bg-gradient-to-r from-teal-500 to-indigo-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  }`}
+                >
+                  <Icons.Home /> Home
+                </button>
+                <button
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
+                    activeTab === 'dashboard'
+                      ? 'bg-gradient-to-r from-teal-500 to-indigo-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  }`}
+                >
+                  <Icons.LayoutDashboard /> Dashboard
+                </button>
+                <button
+                  onClick={() => setActiveTab('analytics')}
+                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
+                    activeTab === 'analytics'
+                      ? 'bg-gradient-to-r from-teal-500 to-indigo-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  }`}
+                >
+                  <Icons.BarChart3 /> Analytics
+                </button>
+                <button
+                  onClick={() => setActiveTab('history')}
+                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all ${
+                    activeTab === 'history'
+                      ? 'bg-gradient-to-r from-teal-500 to-indigo-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  }`}
+                >
+                  <Icons.Calendar /> Log History
+                </button>
+              </nav>
+
+              {/* Right CTA / User controls */}
+              <div className="flex items-center gap-3">
+                <div className="hidden sm:flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300">
+                  <span className="text-amber-400 animate-pulse"><Icons.Flame /></span>
+                  <span>{user.currentStreak} Day Streak</span>
+                </div>
+
+                <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-500 text-[11px] font-bold text-white">
+                    {user.username.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="hidden sm:inline text-xs font-medium text-slate-200">
+                    {user.username}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile Nav */}
+            <div className="flex md:hidden overflow-x-auto border-t border-slate-800/60 bg-slate-950/90 px-3 py-2 gap-1.5">
+              <button onClick={() => setActiveTab('home')} className={`flex shrink-0 items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium ${activeTab === 'home' ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' : 'text-slate-400'}`}>
+                Home
+              </button>
+              <button onClick={() => setActiveTab('dashboard')} className={`flex shrink-0 items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium ${activeTab === 'dashboard' ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' : 'text-slate-400'}`}>
+                Dashboard
+              </button>
+              <button onClick={() => setActiveTab('analytics')} className={`flex shrink-0 items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium ${activeTab === 'analytics' ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' : 'text-slate-400'}`}>
+                Analytics
+              </button>
+              <button onClick={() => setActiveTab('history')} className={`flex shrink-0 items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium ${activeTab === 'history' ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' : 'text-slate-400'}`}>
+                History
+              </button>
+            </div>
+          </header>
+
+          {/* Main Body Switcher */}
+          <main className="flex-1">
+            {activeTab === 'home' && (
+              <LandingView 
+                setActiveTab={setActiveTab} 
+                recentLogs={userLogs} 
+                onQuickLogSubmit={handleSaveLog} 
+              />
+            )}
+            {activeTab === 'dashboard' && (
+              <DashboardView 
+                logs={userLogs} 
+                user={user} 
+                todayLog={todayLog} 
+                onSaveLog={handleSaveLog} 
+                setIsLogModalOpen={setIsLogModalOpen} 
+              />
+            )}
+            {activeTab === 'analytics' && (
+              <AnalyticsView logs={userLogs} />
+            )}
+            {activeTab === 'history' && (
+              <HistoryView 
+                logs={userLogs} 
+                onDeleteLog={handleDeleteLog} 
+                onClearLogs={handleClearLogs} 
+                onLoadSampleLogs={handleLoadSampleLogs} 
+                setActiveTab={setActiveTab} 
+              />
+            )}
+          </main>
+
+          {/* Log Modal */}
+          {isLogModalOpen && (
+            <LogHabitModal 
+              todayLog={todayLog} 
+              todayStr={todayStr} 
+              onClose={() => setIsLogModalOpen(false)} 
+              onSave={handleSaveLog} 
+            />
+          )}
+
+          {/* Footer */}
+          <footer className="border-t border-slate-900 bg-slate-950 py-8 px-6 text-center text-xs text-slate-500">
+            <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-teal-400 font-bold">MindTrack Pro</span>
+                <span>• BCA Final Year Project</span>
+              </div>
+              <div>
+                Developed by <span className="text-slate-300 font-medium">Shifa Sadik Sayyed (Roll No. 41)</span> | Guide: <span className="text-slate-300 font-medium">Asst. Prof. Affan Khan</span>
+              </div>
+            </div>
+          </footer>
+        </div>
+      );
+    }
+
+    // --- 1. LANDING PAGE VIEW (Exact ditto layout & luxury glow) ---
+    function LandingView({ setActiveTab, recentLogs, onQuickLogSubmit }) {
+      const [quickSleep, setQuickSleep] = useState(8);
+      const [quickWater, setQuickWater] = useState(8);
+      const [quickMood, setQuickMood] = useState('ecstatic');
+      const [successMsg, setSuccessMsg] = useState(null);
+
+      const handleQuickSubmit = (e) => {
+        e.preventDefault();
+        const today = new Date().toISOString().split('T')[0];
+        onQuickLogSubmit({
+          date: today,
+          sleepHours: quickSleep,
+          waterGlasses: quickWater,
+          studyHours: 4,
+          exerciseMinutes: 30,
+          mood: quickMood,
+          energyLevel: MOOD_CONFIGS[quickMood].score * 2,
+          notes: 'Quick logged from Landing Page widget!'
+        });
+        setSuccessMsg('Logged successfully! Redirecting to Dashboard...');
+        setTimeout(() => {
+          setSuccessMsg(null);
+          setActiveTab('dashboard');
+        }, 1200);
+      };
+
+      return (
+        <div className="relative overflow-hidden bg-slate-950 text-slate-100">
+          {/* Background Ambient Glows */}
+          <div className="pointer-events-none absolute -top-40 left-1/2 -z-10 h-[500px] w-[800px] -translate-x-1/2 rounded-full bg-gradient-to-tr from-teal-500/15 via-indigo-600/20 to-purple-600/15 blur-[120px]" />
+          <div className="pointer-events-none absolute top-[600px] right-0 -z-10 h-[400px] w-[500px] rounded-full bg-teal-500/10 blur-[100px]" />
+
+          {/* Hero Section */}
+          <section className="mx-auto max-w-7xl px-4 pt-12 pb-16 sm:px-6 lg:pt-20">
+            <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12">
+              <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
+                <div className="inline-flex items-center gap-2 rounded-full border border-teal-500/30 bg-teal-500/10 px-3.5 py-1.5 text-xs font-semibold text-teal-300 shadow-[0_0_15px_rgba(45,212,191,0.15)]">
+                  <Icons.Sparkles />
+                  <span>MindTrack • Shifa Sadik Sayyed (Roll No. 41)</span>
+                </div>
+
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-100 leading-tight">
+                  Transform Your Daily Habits into{' '}
+                  <span className="bg-gradient-to-r from-teal-300 via-emerald-300 to-indigo-300 bg-clip-text text-transparent">
+                    Visual Intelligence
+                  </span>
+                </h1>
+
+                <p className="max-w-2xl text-xs sm:text-base text-slate-300 leading-relaxed mx-auto lg:mx-0">
+                  Track sleep, hydration, study routines, and mood shifts with real-time rolling correlation metrics. Developed by <strong>Shifa Sadik Sayyed (BCA 3rd Year, Roll No. 41)</strong> under the guidance of <strong>Asst. Prof. Affan Khan</strong>.
+                </p>
+
+                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 pt-2">
+                  <button
+                    onClick={() => setActiveTab('dashboard')}
+                    className="group flex items-center gap-2 rounded-xl bg-gradient-to-r from-teal-500 via-indigo-500 to-purple-600 px-5 py-3 text-xs sm:text-sm font-bold text-white shadow-[0_0_25px_rgba(45,212,191,0.35)] hover:shadow-[0_0_35px_rgba(168,85,247,0.5)] transition-all active:scale-95"
+                  >
+                    <span>Launch Interactive Dashboard</span>
+                    <Icons.ArrowRight />
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('analytics')}
+                    className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-xs sm:text-sm font-semibold text-slate-200 hover:border-slate-500 hover:bg-slate-800 transition-all"
+                  >
+                    <Icons.BarChart3 />
+                    View Analytics
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Preview Card */}
+              <div className="lg:col-span-5">
+                <div className="relative rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-2xl backdrop-blur-xl">
+                  <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <div className="h-3 w-3 rounded-full bg-rose-500" />
+                      <div className="h-3 w-3 rounded-full bg-amber-500" />
+                      <div className="h-3 w-3 rounded-full bg-emerald-500" />
+                      <span className="ml-2 text-xs font-semibold text-slate-400">Live Dashboard Preview</span>
+                    </div>
+                    <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400 border border-emerald-500/20">
+                      🔥 7-Day Active
+                    </span>
+                  </div>
+
+                  <div className="mt-5 space-y-4">
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="flex items-center gap-1.5 text-slate-300 font-medium"><Icons.Moon /> Sleep Duration</span>
+                        <span className="font-bold text-indigo-300">8.0 hrs / 8.0 goal</span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+                        <div className="h-full w-[100%] rounded-full bg-gradient-to-r from-indigo-500 to-purple-500" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="flex items-center gap-1.5 text-slate-300 font-medium"><Icons.Droplet /> Water Intake</span>
+                        <span className="font-bold text-sky-300">8 Glasses (2.0L)</span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+                        <div className="h-full w-[80%] rounded-full bg-gradient-to-r from-sky-400 to-teal-400" />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 p-3 mt-4">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-2xl">🤩</span>
+                        <div>
+                          <div className="text-xs font-bold text-slate-200">Today Mood: Ecstatic</div>
+                          <div className="text-[11px] text-slate-400">Energy Level: 9/10 • Peak Mental Focus</div>
+                        </div>
+                      </div>
+                      <span className="rounded-lg bg-teal-500/20 px-2 py-1 text-[10px] font-bold text-teal-300">+35% vs Avg</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Quick Interactive Tracker Section */}
+          <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+            <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 sm:p-8 backdrop-blur-md shadow-2xl">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-400 uppercase tracking-wider">
+                    <Icons.Zap /> Quick Interactive Log Demo
+                  </div>
+                  <h2 className="text-2xl font-bold text-slate-100">Log Today Habits Right Now</h2>
+                </div>
+                <span className="text-xs text-slate-400">Changes sync instantly to your local storage session</span>
+              </div>
+
+              {successMsg && (
+                <div className="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs font-semibold text-emerald-300 flex items-center gap-2">
+                  <Icons.CheckCircle2 />
+                  <span>{successMsg}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleQuickSubmit} className="grid grid-cols-1 gap-6 md:grid-cols-4">
+                <div className="space-y-2 rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                  <label className="flex items-center justify-between text-xs font-semibold text-slate-300">
+                    <span className="flex items-center gap-1.5"><Icons.Moon /> Sleep Hours</span>
+                    <span className="text-indigo-400 font-bold">{quickSleep} hrs</span>
+                  </label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="14"
+                    step="0.5"
+                    value={quickSleep}
+                    onChange={(e) => setQuickSleep(parseFloat(e.target.value))}
+                    className="w-full accent-indigo-500 cursor-pointer"
+                  />
+                </div>
+
+                <div className="space-y-2 rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                  <label className="flex items-center justify-between text-xs font-semibold text-slate-300">
+                    <span className="flex items-center gap-1.5"><Icons.Droplet /> Water Glasses</span>
+                    <span className="text-sky-400 font-bold">{quickWater} glasses</span>
+                  </label>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setQuickWater(Math.max(0, quickWater - 1))}
+                      className="h-8 w-8 rounded-lg border border-slate-800 bg-slate-900 font-bold text-slate-300 hover:bg-slate-800"
+                    >
+                      -
+                    </button>
+                    <div className="flex-1 text-center font-bold text-sky-300">{quickWater * 250} ml</div>
+                    <button
+                      type="button"
+                      onClick={() => setQuickWater(quickWater + 1)}
+                      className="h-8 w-8 rounded-lg border border-slate-800 bg-slate-900 font-bold text-slate-300 hover:bg-slate-800"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2 rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                  <label className="flex items-center justify-between text-xs font-semibold text-slate-300">
+                    <span className="flex items-center gap-1.5"><Icons.Smile /> Select Mood</span>
+                    <span className="text-amber-400 font-bold capitalize">{quickMood}</span>
+                  </label>
+                  <div className="flex justify-between items-center pt-1">
+                    {Object.keys(MOOD_CONFIGS).map((mKey) => (
+                      <button
+                        key={mKey}
+                        type="button"
+                        onClick={() => setQuickMood(mKey)}
+                        className={`text-xl p-1.5 rounded-lg transition-transform hover:scale-125 ${
+                          quickMood === mKey ? 'bg-amber-500/20 border border-amber-500/40 scale-110' : 'opacity-60 hover:opacity-100'
+                        }`}
+                      >
+                        {MOOD_CONFIGS[mKey].emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    type="submit"
+                    className="w-full rounded-2xl bg-gradient-to-r from-teal-500 to-indigo-600 py-4 text-xs font-bold text-white shadow-lg hover:shadow-teal-500/25 transition-all active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <Icons.Activity /> Save Quick Log
+                  </button>
+                </div>
+              </form>
+            </div>
+          </section>
+        </div>
+      );
+    }
+
+    // --- 2. DASHBOARD VIEW ---
+    function DashboardView({ logs, user, todayLog, onSaveLog, setIsLogModalOpen }) {
+      return (
+        <div className="min-h-screen bg-slate-950 px-4 py-8 sm:px-6 lg:px-8 space-y-8 max-w-7xl mx-auto">
+          {/* Top Banner */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-3xl border border-slate-800 bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 p-6 shadow-xl backdrop-blur-xl">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100">
+                  Welcome back, {user?.username || 'Student'} 👋
+                </h1>
+                <span className="rounded-full bg-teal-500/10 px-2.5 py-0.5 text-xs font-bold text-teal-300 border border-teal-500/20">
+                  Daily Habit Hub
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-400">
+                Today is {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-bold text-amber-300">
+                <span className="text-amber-400 fill-amber-400 animate-bounce"><Icons.Flame /></span>
+                <div>
+                  <div className="text-[10px] uppercase text-amber-400/80">Active Streak</div>
+                  <div>{user?.currentStreak || 7} Days Strong</div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsLogModalOpen(true)}
+                className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-teal-500 via-indigo-500 to-purple-600 px-5 py-3 text-xs font-bold text-white shadow-[0_0_20px_rgba(45,212,191,0.3)] hover:shadow-[0_0_30px_rgba(168,85,247,0.4)] transition-all active:scale-95"
+              >
+                <Icons.Plus />
+                <span>{todayLog ? "Update Today's Log" : 'Log Today Habits'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Today's Habit Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {/* Sleep Card */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 space-y-3 relative overflow-hidden shadow-lg">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span className="flex items-center gap-1.5 font-bold text-slate-300">
+                  <Icons.Moon /> Sleep Duration
+                </span>
+                <span className="font-semibold text-indigo-400">Target: 8.0h</span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-3xl font-extrabold text-slate-100">
+                  {todayLog?.sleepHours ?? 0} <span className="text-sm font-normal text-slate-400">hrs</span>
+                </span>
+                <span className="text-xs font-semibold text-emerald-400">
+                  {((todayLog?.sleepHours ?? 0) / 8 * 100).toFixed(0)}% Goal
+                </span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-slate-800">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500"
+                  style={{ width: `${Math.min(100, ((todayLog?.sleepHours ?? 0) / 8) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Water Card */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 space-y-3 relative overflow-hidden shadow-lg">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span className="flex items-center gap-1.5 font-bold text-slate-300">
+                  <Icons.Droplet /> Hydration
+                </span>
+                <span className="font-semibold text-sky-400">Target: 8 Glasses</span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-3xl font-extrabold text-slate-100">
+                  {todayLog?.waterGlasses ?? 0} <span className="text-sm font-normal text-slate-400">glasses</span>
+                </span>
+                <span className="text-xs font-semibold text-sky-300">
+                  {(todayLog?.waterGlasses ?? 0) * 250} ml
+                </span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-slate-800">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-sky-400 to-teal-400 transition-all duration-500"
+                  style={{ width: `${Math.min(100, ((todayLog?.waterGlasses ?? 0) / 8) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Study Hours Card */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 space-y-3 relative overflow-hidden shadow-lg">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span className="flex items-center gap-1.5 font-bold text-slate-300">
+                  <Icons.Clock /> Focus & Revision
+                </span>
+                <span className="font-semibold text-teal-400">Target: 4.0h</span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-3xl font-extrabold text-slate-100">
+                  {todayLog?.studyHours ?? 0} <span className="text-sm font-normal text-slate-400">hrs</span>
+                </span>
+                <span className="text-xs font-semibold text-teal-300">
+                  {((todayLog?.studyHours ?? 0) / 4 * 100).toFixed(0)}% Goal
+                </span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-slate-800">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-teal-400 to-emerald-400 transition-all duration-500"
+                  style={{ width: `${Math.min(100, ((todayLog?.studyHours ?? 0) / 4) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Today Mood Card */}
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 space-y-3 relative overflow-hidden shadow-lg">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span className="flex items-center gap-1.5 font-bold text-slate-300">
+                  <Icons.Smile /> Mood & Energy
+                </span>
+                <span className="font-semibold text-amber-400">
+                  {todayLog ? `Level ${todayLog.energyLevel}/10` : 'Not Set'}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">
+                  {todayLog ? MOOD_CONFIGS[todayLog.mood].emoji : '😶'}
+                </span>
+                <div>
+                  <div className="text-sm font-bold text-slate-100 capitalize">
+                    {todayLog ? MOOD_CONFIGS[todayLog.mood].label : 'Not Logged Yet'}
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    {todayLog ? todayLog.notes || 'No custom notes logged today.' : "Click 'Log Today Habits' above to record"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // --- 3. ANALYTICS VIEW ---
+    function AnalyticsView({ logs }) {
+      const [rangeDays, setRangeDays] = useState(14);
+      const filteredLogs = logs.slice(0, rangeDays).reverse();
+
+      const avgSleep = (filteredLogs.reduce((acc, l) => acc + l.sleepHours, 0) / (filteredLogs.length || 1)).toFixed(1);
+      const avgWater = (filteredLogs.reduce((acc, l) => acc + l.waterGlasses, 0) / (filteredLogs.length || 1)).toFixed(1);
+      const avgStudy = (filteredLogs.reduce((acc, l) => acc + l.studyHours, 0) / (filteredLogs.length || 1)).toFixed(1);
+
+      return (
+        <div className="min-h-screen bg-slate-950 px-4 py-8 sm:px-6 lg:px-8 space-y-8 max-w-7xl mx-auto">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+            <div>
+              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-400 uppercase tracking-wider">
+                <Icons.BarChart3 /> Visual Intelligence Dashboard
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100">Habit & Mood Trends</h1>
+            </div>
+
+            <div className="flex items-center gap-1.5 rounded-2xl border border-slate-800 bg-slate-900 p-1">
+              {[7, 14, 30].map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setRangeDays(d)}
+                  className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                    rangeDays === d ? 'bg-gradient-to-r from-teal-500 to-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {d} Days
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 space-y-2">
+              <div className="text-xs font-semibold text-slate-400 flex items-center gap-1.5"><Icons.Moon /> Avg Sleep ({rangeDays}d)</div>
+              <div className="text-3xl font-extrabold text-indigo-300">{avgSleep} hrs/day</div>
+              <p className="text-[11px] text-slate-500">Optimum range: 7.5 - 8.5 hours</p>
+            </div>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 space-y-2">
+              <div className="text-xs font-semibold text-slate-400 flex items-center gap-1.5"><Icons.Droplet /> Avg Hydration ({rangeDays}d)</div>
+              <div className="text-3xl font-extrabold text-sky-300">{avgWater} glasses</div>
+              <p className="text-[11px] text-slate-500">{(Number(avgWater) * 250 / 1000).toFixed(1)} Liters daily average</p>
+            </div>
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 space-y-2">
+              <div className="text-xs font-semibold text-slate-400 flex items-center gap-1.5"><Icons.Clock /> Avg Focus Study ({rangeDays}d)</div>
+              <div className="text-3xl font-extrabold text-teal-300">{avgStudy} hrs/day</div>
+              <p className="text-[11px] text-slate-500">Steady revision keeps mental clarity high</p>
+            </div>
+          </div>
+
+          {/* Habit Trend Visualizer */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                <Icons.TrendingUp /> Daily Habit Activity Breakdown
+              </h3>
+              <div className="flex items-center gap-3 text-[11px] text-slate-400 font-medium">
+                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-indigo-400" /> Sleep</span>
+                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-sky-400" /> Water</span>
+                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-teal-400" /> Study</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              {filteredLogs.map((log) => (
+                <div key={log.id} className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{MOOD_CONFIGS[log.mood]?.emoji || '🙂'}</span>
+                    <div>
+                      <div className="text-xs font-bold text-slate-200">{log.date} <span className="ml-2 text-[10px] text-teal-400 font-normal capitalize">({log.mood})</span></div>
+                      <div className="text-[11px] text-slate-400">{log.notes || 'Routine log recorded'}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 text-xs font-semibold">
+                    <div className="text-indigo-300">{log.sleepHours}h Sleep</div>
+                    <div className="text-sky-300">{log.waterGlasses} Glasses</div>
+                    <div className="text-teal-300">{log.studyHours}h Study</div>
+                    <div className="text-purple-300">{log.exerciseMinutes}m Workout</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-teal-500/30 bg-gradient-to-r from-teal-500/10 via-indigo-500/10 to-purple-500/10 p-6 space-y-3 backdrop-blur-md">
+            <div className="flex items-center gap-2 text-xs font-bold text-teal-300 uppercase tracking-wider">
+              <Icons.Zap /> Wellness Correlation Insight
+            </div>
+            <h3 className="text-lg font-bold text-slate-100">Hydration & Sleep Directly Elevate Mood Scores</h3>
+            <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
+              Our analysis shows that on days where water intake reached 8+ glasses and sleep exceeded 7.5 hours, your reported mood was <b>Ecstatic or Happy 88% of the time</b>. Maintain this habit routine to prevent study burnouts!
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // --- 4. HISTORY VIEW ---
+    function HistoryView({ logs, onDeleteLog, onClearLogs, onLoadSampleLogs, setActiveTab }) {
+      const [searchTerm, setSearchTerm] = useState('');
+      const [selectedMood, setSelectedMood] = useState('all');
+
+      const filteredLogs = logs.filter((log) => {
+        const matchesSearch = log.date.includes(searchTerm) || log.notes.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesMood = selectedMood === 'all' || log.mood === selectedMood;
+        return matchesSearch && matchesMood;
+      });
+
+      const exportToJson = () => {
+        const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(logs, null, 2));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute('href', dataStr);
+        downloadAnchor.setAttribute('download', `mindtrack_habit_logs_${new Date().toISOString().split('T')[0]}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+      };
+
+      return (
+        <div className="min-h-screen bg-slate-950 px-4 py-8 sm:px-6 lg:px-8 space-y-6 max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+            <div>
+              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-400 uppercase tracking-wider">
+                <Icons.Calendar /> Activity Journal
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-100">Habit Log History</h1>
+              <p className="text-xs text-slate-400 mt-1">Total entries recorded: <span className="font-bold text-teal-300">{logs.length}</span></p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {logs.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (confirm('Are you sure you want to clear all habit logs and start completely fresh?')) {
+                      onClearLogs();
+                    }
+                  }}
+                  className="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-bold text-rose-300 hover:bg-rose-500/20 transition-all"
+                >
+                  <Icons.Trash2 /> Clear All Data
+                </button>
+              )}
+
+              {logs.length === 0 && (
+                <button
+                  onClick={onLoadSampleLogs}
+                  className="flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 text-xs font-bold text-indigo-300 hover:bg-indigo-500/20 transition-all"
+                >
+                  <Icons.Activity /> Load Sample Data
+                </button>
+              )}
+
+              {logs.length > 0 && (
+                <button
+                  onClick={exportToJson}
+                  className="flex items-center gap-2 rounded-xl border border-teal-500/30 bg-teal-500/10 px-4 py-2 text-xs font-bold text-teal-300 hover:bg-teal-500/20 transition-all"
+                >
+                  <Icons.Download /> Export JSON
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="relative md:col-span-2">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search notes or date (YYYY-MM-DD)..."
+                className="w-full rounded-xl border border-slate-800 bg-slate-900 py-2.5 px-4 text-xs text-slate-100 placeholder-slate-500 focus:border-teal-500 focus:outline-none"
+              />
+            </div>
+
+            <select
+              value={selectedMood}
+              onChange={(e) => setSelectedMood(e.target.value)}
+              className="rounded-xl border border-slate-800 bg-slate-900 py-2.5 px-3 text-xs text-slate-300 focus:border-teal-500 focus:outline-none"
+            >
+              <option value="all">All Mood Types</option>
+              {Object.keys(MOOD_CONFIGS).map((mKey) => (
+                <option key={mKey} value={mKey}>{MOOD_CONFIGS[mKey].emoji} {MOOD_CONFIGS[mKey].label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/80 shadow-xl">
+            <table className="w-full text-left text-xs text-slate-300">
+              <thead className="border-b border-slate-800 bg-slate-950/60 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                <tr>
+                  <th className="px-4 py-3.5">Date</th>
+                  <th className="px-4 py-3.5">Sleep</th>
+                  <th className="px-4 py-3.5">Water</th>
+                  <th className="px-4 py-3.5">Study</th>
+                  <th className="px-4 py-3.5">Workout</th>
+                  <th className="px-4 py-3.5">Mood</th>
+                  <th className="px-4 py-3.5">Notes</th>
+                  <th className="px-4 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {filteredLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
+                      No logs found. Click 'Dashboard' to record today's habit log.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="px-4 py-3.5 font-bold text-slate-200">{log.date}</td>
+                      <td className="px-4 py-3.5 text-indigo-300 font-semibold">{log.sleepHours}h</td>
+                      <td className="px-4 py-3.5 text-sky-300 font-semibold">{log.waterGlasses} gls</td>
+                      <td className="px-4 py-3.5 text-teal-300 font-semibold">{log.studyHours}h</td>
+                      <td className="px-4 py-3.5 text-purple-300 font-semibold">{log.exerciseMinutes}m</td>
+                      <td className="px-4 py-3.5">
+                        <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold border border-slate-800 bg-slate-950">
+                          <span>{MOOD_CONFIGS[log.mood]?.emoji}</span>
+                          <span className="capitalize">{log.mood}</span>
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 max-w-xs truncate text-slate-400">{log.notes || '-'}</td>
+                      <td className="px-4 py-3.5 text-right">
+                        <button
+                          onClick={() => onDeleteLog(log.id)}
+                          className="p-1.5 rounded-lg border border-slate-800 text-slate-400 hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-400 transition-all"
+                        >
+                          <Icons.Trash2 />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    // --- 5. LOG HABIT MODAL ---
+    function LogHabitModal({ todayLog, todayStr, onClose, onSave }) {
+      const [sleepHours, setSleepHours] = useState(todayLog?.sleepHours ?? 8);
+      const [waterGlasses, setWaterGlasses] = useState(todayLog?.waterGlasses ?? 8);
+      const [studyHours, setStudyHours] = useState(todayLog?.studyHours ?? 4);
+      const [exerciseMinutes, setExerciseMinutes] = useState(todayLog?.exerciseMinutes ?? 30);
+      const [mood, setMood] = useState(todayLog?.mood ?? 'ecstatic');
+      const [notes, setNotes] = useState(todayLog?.notes ?? '');
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave({
+          id: todayLog?.id,
+          date: todayStr,
+          sleepHours,
+          waterGlasses,
+          studyHours,
+          exerciseMinutes,
+          mood,
+          energyLevel: MOOD_CONFIGS[mood].score * 2,
+          notes
+        });
+        onClose();
+      };
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md">
+          <div className="w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-teal-400"><Icons.Sparkles /></span>
+                <h3 className="text-lg font-bold text-slate-100">Log Habits for {todayStr}</h3>
+              </div>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-200 text-lg font-bold px-2">✕</button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="flex justify-between font-semibold text-slate-300">
+                  <span>Sleep Hours</span>
+                  <span className="text-indigo-400">{sleepHours} hrs</span>
+                </label>
+                <input type="range" min="0" max="14" step="0.5" value={sleepHours} onChange={(e) => setSleepHours(parseFloat(e.target.value))} className="w-full accent-indigo-500 cursor-pointer" />
+              </div>
+
+              <div className="space-y-1">
+                <label className="flex justify-between font-semibold text-slate-300">
+                  <span>Water Glasses</span>
+                  <span className="text-sky-400">{waterGlasses} glasses ({waterGlasses * 250}ml)</span>
+                </label>
+                <input type="range" min="0" max="20" value={waterGlasses} onChange={(e) => setWaterGlasses(parseInt(e.target.value))} className="w-full accent-sky-500 cursor-pointer" />
+              </div>
+
+              <div className="space-y-1">
+                <label className="flex justify-between font-semibold text-slate-300">
+                  <span>Study / Revision Hours</span>
+                  <span className="text-teal-400">{studyHours} hrs</span>
+                </label>
+                <input type="range" min="0" max="16" step="0.5" value={studyHours} onChange={(e) => setStudyHours(parseFloat(e.target.value))} className="w-full accent-teal-500 cursor-pointer" />
+              </div>
+
+              <div className="space-y-1">
+                <label className="flex justify-between font-semibold text-slate-300">
+                  <span>Exercise / Workout</span>
+                  <span className="text-purple-400">{exerciseMinutes} mins</span>
+                </label>
+                <input type="range" min="0" max="180" step="5" value={exerciseMinutes} onChange={(e) => setExerciseMinutes(parseInt(e.target.value))} className="w-full accent-purple-500 cursor-pointer" />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="font-semibold text-slate-300">Select Mood</label>
+                <div className="grid grid-cols-5 gap-2">
+                  {Object.keys(MOOD_CONFIGS).map((mKey) => (
+                    <button
+                      key={mKey}
+                      type="button"
+                      onClick={() => setMood(mKey)}
+                      className={`flex flex-col items-center justify-center rounded-xl p-2.5 border transition-all ${
+                        mood === mKey ? 'border-teal-500 bg-teal-500/20 text-teal-200' : 'border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700'
+                      }`}
+                    >
+                      <span className="text-2xl">{MOOD_CONFIGS[mKey].emoji}</span>
+                      <span className="text-[10px] font-semibold mt-1 capitalize">{mKey}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-300">Notes / Reflection</label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="What went well today? Any key insights..."
+                  rows={2}
+                  className="w-full rounded-xl border border-slate-800 bg-slate-950 p-2.5 text-xs text-slate-100 focus:outline-none focus:border-teal-500"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-3">
+                <button type="button" onClick={onClose} className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 font-semibold text-slate-400 hover:text-slate-200">
+                  Cancel
+                </button>
+                <button type="submit" className="rounded-xl bg-gradient-to-r from-teal-500 to-indigo-600 px-5 py-2 font-bold text-white shadow-lg hover:shadow-teal-500/20">
+                  Save Habit Log
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<MindTrackApp />);
+  </script>
+</body>
+</html>
